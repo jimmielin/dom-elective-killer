@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Elective@PKU (2018/9)</title>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="css/pretty-checkbox.min.css">
+
+	<script type="text/javascript" src="js/jquery.min.js"></script>
+	<script type="text/javascript" src="js/bootstrap.min.js"></script>
+	<style type="text/css">
+		body { font-family: "Microsoft YaHei", "Segoe UI"; }
+		.form-control { font-size: 12px; }
+	</style>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+		<a class="navbar-brand" href="#">
+			Elective@PKU
+			<span class="badge badge-warning" id="status">
+				Loading
+			</span>
+		</a>
+		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+		<div class="collapse navbar-collapse" id="navbarText">
+			<ul class="navbar-nav mr-auto">
+				<li class="nav-item active">
+					<a class="nav-link" href="#">Home</a>
+				</li>
+			</ul>
+			<span class="navbar-text">
+				Using <span id="username">#{UN}</span>
+			</span>
+		</div>
+	</nav>
+	<br>
+	<div class="row">
+	    <div class="col-sm-6">
+	        <div class="card" style="margin: 5px">
+	            <div class="card-body">
+	                <h4 class="card-title">Settings</h4>
+	                <p class="card-text">
+	                	<form>
+							<div class="form-row">
+								<div class="col">
+									监视课程编码<br>
+									<small>用英文逗号分隔, 无需空格</small>
+								</div>
+								<div class="col">
+									<input type="text" class="form-control" id="tableIdsToWatch" placeholder="1,2,3,4,5...">
+								</div>
+							</div>
+						</form>
+						
+						<!--
+						<div class="alert alert-warning desktopNotificationTip" style="display: none; padding: 3px" onclick='requestNotifyPermission()'>点击我开启桌面提示功能</div>
+			            <script type="text/javascript">
+			                if(typeof window.Notification != "undefined" && window.Notification) {
+			                    if(window.Notification.permission == "default") {
+			                        $(".desktopNotificationTip").show();
+			                    }
+			                }
+			            </script>
+			        	-->
+
+			        	<div class="row">
+			        		<div class="col-md-6">
+			        			<div class="pretty p-default p-curve p-toggle">
+							        <input type="checkbox" id="emergency-halt" />
+							        <div class="state p-success p-off">
+							            <label class="text-success">监视课程</label>
+							        </div>
+							        <div class="state p-danger p-on">
+							            <label class="text-danger">紧急制动 (已探测到空位/选上, 请检查列表)</label>
+							        </div>
+							    </div>
+			        		</div>
+			        		<div class="col-md-6">
+			        			<div class="pretty p-default p-curve p-toggle">
+							        <input type="checkbox" id="ludicrous-mode" />
+							        <div class="state p-warning p-off">
+							            <label class="text-warning">正常模式 (手动选课, 点此开启Ludicrous Mode)</label>
+							        </div>
+							        <div class="state p-info p-on">
+							            <label class="text-info">滑稽模式 (自动选课)</label>
+							        </div>
+							    </div>
+			        		</div>
+			        	</div>
+
+
+			            <div class="alert alert-warning ludicrousTip" id="ludicrousTip" style="display: none; padding: 3px"></div>
+	                </p>
+	                <a onclick="$('#alerts').html('')" href="#js" class="btn btn-secondary">Clear Log</a>
+	                <br /><small style="color: #aaa">Version 20</small>
+	            </div>
+	        </div>
+	    </div>
+	    <div class="col-sm-6">
+	        <div class="card" style="margin: 5px">
+	            <div class="card-body">
+	                <h4 class="card-title">Status (<span class="text-success" id="electiveSuc">#{S}</span> OK / <span class="text-warning" id="electiveWrn">#{W}</span> Warnings - Refresh Rate <span id="electiveRate">#{R}</span>%)</h4>
+	                <p class="card-text" style="font-size: 11px">
+	                	<strong>URI:</strong> <span id="electiveUri">#{URI}</span><br />
+	                	<strong>XHR:</strong> <span id="electiveXhr"><em>no xhr loaded</em></span><br />
+	                	<strong>Alerts:</strong>
+	                	<textarea id="alerts" class="form-control" rows="4" readonly></textarea>
+	                	<br />
+	                	<div class="progress">
+							<div class="progress-bar" role="progressbar" style="width: 0%" id="progress-timer"></div>
+						</div>
+	                </p>
+	            </div>
+	        </div>
+	    </div>
+	</div>
+
+	<br>
+	<center>
+		<iframe src="http://elective.pku.edu.cn/" frameborder="0" height="640px" sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts allow-top-navigation" id="elective" style="border: 1px dashed #ccc; width: 90%; margin: auto auto;" onload="electiveFrameHasReloaded()"></iframe>
+	</center>
+	<script type="text/javascript">
+		/**
+		 * @date 				September 11, 2017
+		 */
+		// For this to work you have to run chrome.exe with the following command line options (Win):
+		//  --user-data-dir="C:/Chrome dev session" --disable-web-security
+		var myUsername = "1000000000";
+		var myPwd = "my_password_here";
+		
+		// Add a mask so we aren't immediately seen
+		$("#username").text("**" + myUsername.substr(myUsername.length - 3))
+
+		//// ----------- NO USER CONFIGURABLE VARIABLES BELOW ------------ ////
+
+		/**
+		 * Utility Functions
+		 */
+		window.audioNotify = new Audio("notify.mp3");
+		function requestNotifyPermission() {
+        	if(typeof window.nativeNotify == "undefined" || !window.nativeNotify) {
+	            window.Notification.requestPermission(function(status) {
+	                if(status == "granted") window.nativeNotify = true;
+	                $(".desktopNotificationTip").slideUp(300);
+	            });
+	        }
+	    }
+
+	    function doNativeNotify(title, message) {
+	        if(window.nativeNotify) {
+	            new Notification(title, { 
+	                body: message
+	            });
+	        }
+	        else {
+	            // stub it out...
+	        }
+	    }
+
+	    function shuffle(array) { // an efficient knuth in-place shuffle SO#2450954
+			var currentIndex = array.length, temporaryValue, randomIndex;
+			while (0 !== currentIndex) {
+				randomIndex = Math.floor(Math.random() * currentIndex);
+				currentIndex -= 1;
+				temporaryValue = array[currentIndex];
+				array[currentIndex] = array[randomIndex];
+				array[randomIndex] = temporaryValue;
+			}
+
+			return array;
+		}
+
+		function isHidden(el) {
+		    var style = window.getComputedStyle(el);
+		    return (style.display === 'none')
+		}
+
+	    /**
+	     * Actual Code
+	     */
+		var counter = 5;
+		var isWatchDogSafeToGo = false;
+
+		var electiveSuccess = 0;
+		var electiveWarning = 0;
+		var lastFromFrameAlert = "";
+
+		$("#ludicrous-mode").on('click', function(e) {
+			if(document.getElementById("ludicrous-mode").checked) {
+				var res = confirm("你确定你要启动滑稽模式吗?\n\n滑稽模式会开启一些强烈依赖于elective目前工作原理的功能, 包括:\n- 关闭前段级别的5秒刷新的限制\n- 关闭elective刷新人数后验证码刷新的 '功能'\n- 允许提前缓存验证码, 自动提交补选按钮\n- 关闭选课确认的提示对话框\n- 允许更快程度的刷课.\n\n警告: 滑稽模式 (Ludicrous Mode) 是高层次操纵elective代码的操作, 前端代码的改变会被学校发现. 请你衡量风险并谨慎行事.\n你确定吗?")
+				if(res) toggleLudicrousMode();
+				else {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+			}
+			else {
+				toggleLudicrousMode();
+			}
+		})
+
+		function toggleLudicrousMode() {
+			if(typeof window.electiveWnd != "undefined") window.electiveWnd.location.reload();
+		}
+
+		function electiveFrameHasReloaded() {
+			window.elective = document.getElementById("elective").contentDocument;
+			window.electiveWnd = document.getElementById("elective").contentWindow;
+			window.electiveSrc = document.getElementById("elective").contentDocument.location.href;
+			$("#electiveUri").text(electiveSrc)
+			if(electiveSrc.match(/iaaa/) != null) {
+				// is in IAAA...
+				try {
+					window.elective.getElementById("user_name").value = myUsername
+					window.elective.getElementById("password").value  = myPwd
+					window.elective.getElementById("logon_button").click() // not standards compliant
+					$("#status").removeClass("badge-success").addClass("badge-warning").text("Logging in");
+				}
+				catch(e) {
+					$("#status").removeClass("badge-success").addClass("badge-warning").text("Waiting for IAAA...");
+				}
+			}
+			else if(electiveSrc.match(/elective2008\/ssoLogin\.do(.+)token=/) != null) {
+				// IAAA authentication successful
+				try {
+					
+					window.elective.getElementById("div1").click() // 主修
+					
+					// window.elective.getElementById("div2").click() // 辅双
+					
+				}
+				catch(e) {
+
+				}
+			}
+			else if(electiveSrc.match(/HelpController\.jpf/) != null) {
+				// In HELP
+				$("#status").text("Logged In");
+
+				// Find 补退选 in navigation and trigger click.
+				// this initiates the corrected referer.
+				var headNodes = elective.getElementsByClassName("titlelink1")
+				Array.prototype.forEach.call(headNodes, function(node) {
+					if(node.innerHTML == "补退选") node.click()
+				})
+			}
+			else if(electiveSrc.match(/SupplyCancel/) != null || electiveSrc.match(/supplement/) != null) {
+				// In SupplyCancel
+				if(elective.documentElement.innerHTML.match(/目前不是补退选时间/)) {
+					window.isWatchDogSafeToGo = false;
+					$("#status").removeClass("badge-warning").addClass("badge-danger").text("Not Now!")
+				}
+				else if(elective.documentElement.innerHTML.match(/您尚未登录或者会话超时/)) {
+					// Needs to re-login ...
+					window.isWatchDogSafeToGo = false;
+					document.getElementById("elective").src = "http://elective.pku.edu.cn"
+				}
+				else if(elective.documentElement.innerHTML.match(/请不要用刷课机/)) {
+					window.isWatchDogSafeToGo = false;
+					document.getElementById("elective").src = "http://elective.pku.edu.cn"
+				}
+				else {
+					// Start watchdog!
+					window.isWatchDogSafeToGo = true;
+					window.counter = 5;
+
+					// Some pretty styling...
+					window.elective.getElementsByTagName("body")[0].style.fontFamily = "Microsoft YaHei";
+
+					// Style the validCodeImg so that we don't have to click aimlessly around it
+					window.elective.codeInput = window.elective.getElementById("validCode")
+					window.elective.codeInput.style.border = "1px dashed #ccc"
+					window.elective.codeInput.style.padding = "15px"
+					window.elective.codeInput.style.fontSize = "25px"
+					window.elective.codeInput.style.width = "200px"
+					window.elective.codeInput.style.boxShadow = "0 0 12px rgba(0, 0, 0, 0.4)"
+
+					// Do some hijacking...
+					// Note that you cannot just insert everything into this function.
+					// Javascript will not allow too hefty of a alert function to replace [native code]
+					// and as such you need to async pipe it to somewhere else.
+					// You are generally limited to ONE, ONE instruction only.
+					window.electiveWnd.alert = function(msg) {
+						window.lastFromFrameAlert = "[" + (new Date).toLocaleTimeString() + "] " + msg;
+					}
+
+					// Prevent confirmCancel from hitting successfully so that 
+					// we have a safety net.
+					window.electiveWnd.confirmCancel = function() { return false; }
+
+					// Hijack the CAPTCHA image so it cannot be refreshed.
+					// This is through implementing a fake DOM for "validCodeImg" *only*
+					if(document.getElementById("ludicrous-mode").checked) {
+						// window.elective.getElementById("validCodeImg").setAttribute("id", "validCodeImg2");
+						window.elective.getElementByIdNative = window.elective.getElementById;
+						window.elective.getElementById = function(arg) {
+							if(arg == "validCodeImg") {
+								return {
+									innerHTML: "",
+									outerHTML: ""
+								}
+							}
+							else {
+								return window.elective.getElementByIdNative(arg)
+							}
+						}
+
+						// hijack window.confirm because it will be used by confirmselect
+						window.electiveWnd.confirmNative = window.electiveWnd.confirm;
+						window.electiveWnd.confirm = function(arg) { 
+							if(arg.match(/您确定要选/) != null) { return true; } 
+							else if(arg.match(/要退/) != null) { return false; }
+							else { return window.electiveWnd.confirmNative(arg); } 
+						}
+					}
+				}
+			}
+		}
+
+		// the watchdog runs every 5 seconds with a random up-delay,
+		// to simulate a network condition.
+		// for the progress bar update we run a check every 1 second,
+		// and at the final second the timeout is set a lil bit more.
+		function watchDogFunction() {
+			if(!window.isWatchDogSafeToGo) {
+				$("#progress-timer").addClass("bg-warning").addClass("progress-bar-animated").addClass("progress-bar-striped").css("width", "100%"); // we are frozen ...
+				setTimeout(watchDogFunction, 1000) // wait...
+			}
+			else {
+				counter++;
+				$("#progress-timer").removeClass("bg-warning").css("width", (100 * counter / 10) + "%");
+
+				if(counter < 9) 	  setTimeout(watchDogFunction, 500);
+				else if(counter == 9) setTimeout(watchDogFunction, 300 + Math.random() * 400)
+				else if(counter == 10) {
+					counter = -1;
+
+					doWatchDog();
+					setTimeout(watchDogFunction, 500)
+				}
+			}
+		}
+		watchDogFunction();
+
+		// this is the *actual* watchDog function which performs elective class
+		// checks 
+		function doWatchDog() {
+			// Do some hijacking...
+			window.electiveWnd.alert = function(msg) {
+				window.lastFromFrameAlert = "[" + (new Date).getTime() + "] " + msg;
+			}
+
+			// Are we ludicrous mode? Check if CAPTCHA is filled.
+			window.isLudicrousCaptchaReady = false;
+			if(document.getElementById("ludicrous-mode").checked) {
+				try {
+					if(window.elective.getElementById("validCode").value.length == 4) {
+						window.isLudicrousCaptchaReady = true;
+						$("#ludicrousTip").addClass("alert-success").removeClass("alert-warning").html("<b>滑稽模式:</b> 我准备帮你自动选课. 等着瞧吧!").show();
+					}
+					else {
+						$("#ludicrousTip").addClass("alert-warning").removeClass("alert-success").html("<b>滑稽模式:</b> 我准备帮你自动选课. 请你填写好验证码.").show();
+					}
+				}
+				catch(e) {
+
+				}
+			}
+
+			$("#status").removeClass("badge-warning").addClass("badge-success").text("Working");
+			// number the tables so that they are recognizable.
+			var dataGrid = window.elective.getElementsByClassName("datagrid")[0]
+			var supplyCourses = dataGrid.childNodes[1].childNodes // tbody->tr
+			if(dataGrid.innerHTML.match(/course-refresher-/) == null) {
+				coursesCounter = 0;
+				Array.prototype.forEach.call(supplyCourses, function(node) {
+					if(typeof node.outerHTML == "undefined") return;
+					// match for "Previous" to not match the navigation links at the bottom
+					if(node.outerHTML.match(/tr/) != null && node.outerHTML.match(/datagrid-header/) == null && node.outerHTML.match(/Previous/) == null) {
+						try {
+							//  1      3       5           7             9        11       13      15                17     19              21
+							// name | type | credits | hour workload | teacher | class# | unit | grade 151617... | info | limit/chosen | refresh link | ...
+							// note that the format in childNodes is text | node | text | node ... text so you have to DOUBLE your counts... total 23 so 0 ~ 22
+
+							// Number the nodes... if they are not already numbered
+							node.childNodes[1].innerHTML = "<span style='display:inline-block;color:#fff;background:navy;padding:5px;border-radius:5px' id='course-highlight-" + coursesCounter + "'>" + coursesCounter + "</span>&nbsp;&nbsp;" + node.childNodes[1].innerHTML;
+
+							// sanity checks to prevent elective sneaking up on us...
+							if(node.childNodes[node.childNodes.length - 2].childNodes[0].tagName == "A" && !isHidden(node.childNodes[node.childNodes.length - 2].childNodes[0])) {
+								node.childNodes[node.childNodes.length - 2].setAttribute("id", "course-refresher-" + coursesCounter)
+							}
+
+							// this is a feature to hide some of the unnecessary "exercise" / 习题 courses that do not count towards credit.
+							// done through matching the 'credits' column to 0.0
+							if(node.childNodes[5].innerHTML.match(/0\.0/)) {
+								// hide this node ...
+								node.style.display = "none"
+							}
+
+							coursesCounter++;
+						}
+						catch(e) {
+
+						}
+					}
+				})
+			}
+
+			// add a sanity check for the "chosen" grid SO#12685963 querySelectorAll!
+			var dataGridChosen = window.elective.querySelectorAll("table.datagrid")[1]
+			var chosenCourses = dataGridChosen.childNodes[1].childNodes // tbody->tr
+			if(dataGridChosen.innerHTML.match(/sanity-applied-/) == null) {
+				sanityCounter = 0;
+				Array.prototype.forEach.call(chosenCourses, function(node) {
+					if(typeof node.outerHTML == "undefined") return;
+					if(node.outerHTML.match(/tr/) != null && node.outerHTML.match(/datagrid-header/) == null && node.outerHTML.match(/Previous/) == null) {
+						try {
+							// Number the nodes silently... if they are not already numbered
+							node.childNodes[1].innerHTML = "<span style='display:none' id='sanity-applied-" + sanityCounter + "'></span>&nbsp;&nbsp;" + node.childNodes[1].innerHTML;
+
+							// sanity checks to prevent accidentally clicking on "退选"
+							if(node.childNodes[node.childNodes.length - 2].childNodes[0].tagName == "A" && !isHidden(node.childNodes[node.childNodes.length - 2].childNodes[0])) {
+								node.childNodes[node.childNodes.length - 2].childNodes[0].remove() // so that nothing will happen badly...
+							}
+
+							sanityCounter++;
+						}
+						catch(e) {
+
+						}
+					}
+				})
+			}
+
+			// for the courses that have been chosen, perform a watchdog sync
+			if(document.getElementById("emergency-halt").checked) {
+				$("#progress").addClass("bg-danger");
+				$("#electiveXhr").html("<span class='text-danger'>Emergency Breaking</span>");
+				return;
+			}
+			else {
+				$("#progress").removeClass("bg-danger");
+			}
+
+			var toRefresh = shuffle($("#tableIdsToWatch").val().split(","))
+			toRefreshCounter = 0
+			splitTime = 6000 / (toRefresh.length + 1)
+			toRefresh.forEach(function(todo) {
+				try {
+					window.elective.getElementById("course-highlight-" + todo).style.backgroundColor = "red";
+					setTimeout(function() {
+						var tries = 1;
+						$("#electiveXhr").html("<span class='text-warning'>Refreshing #" + todo + "</span>");
+						if(window.elective.getElementById("course-refresher-" + todo) == null || typeof window.elective.getElementById("course-refresher-" + todo).childNodes == "undefined") return;
+
+						if(window.elective.getElementById("course-refresher-" + todo).childNodes[0].innerHTML.match(/补选/) != null) {
+							// can elect!!!
+							window.elective.getElementById("course-highlight-" + todo).style.backgroundColor = "green";
+							document.getElementById("emergency-halt").checked = true; // HALT!
+							// alert("course number " + todo + " is selectable, do it now!!!!");
+							window.audioNotify.play();
+							doNativeNotify("刷课机提示!", "课程编号 #" + todo + " 刷课成功, 请立刻进行选择!");
+
+							// If ludicrous mode we can directly attempt to hit the captcha
+							if(window.isLudicrousCaptchaReady) {
+								window.electiveWnd.validate()
+								window.elective.getElementById("course-refresher-" + todo).childNodes[0].click() // do a click ...
+							}
+
+							return;
+						}
+						
+						window.elective.getElementById("course-refresher-" + todo).childNodes[0].click() // do a click ...
+
+						while(window.lastFromFrameAlert.match(/刷新失败/) != null/* && tries < 8 */) { // failed to refresh!
+							tries++;
+							window.electiveWarning++;
+							if(document.getElementById("ludicrous-mode").checked) {
+								window.electiveWnd.refreshTime = new Date(0) // nope we have only refreshed back in 1970...
+							}
+							window.elective.getElementById("course-refresher-" + todo).childNodes[0].click() // do once more...
+							// but if it's too tight simply give up with a chance of 5%...
+							// if(Math.random() < 0.05) break;
+
+							if(tries > 45) {
+								// Too much, maybe there is something wrong..
+								window.electiveWnd.location.reload();
+							}
+						}
+
+						$("#alerts").prepend("[" + todo + "] " + window.lastFromFrameAlert + " (Hit " + tries + " times)\r\n");
+						if(window.lastFromFrameAlert.match(/验证码/) != null || window.elective.getElementById("course-refresher-" + todo).childNodes[0].innerHTML.match(/补选/) != null) {
+							window.audioNotify.play();
+							doNativeNotify("刷课机提示!", "有可能刷到了课程, 请打开我看一眼")
+
+							// If ludicrous mode we can directly attempt to hit the captcha
+							if(window.isLudicrousCaptchaReady) {
+								window.electiveWnd.validate()
+								window.elective.getElementById("course-refresher-" + todo).childNodes[0].click() // do a click ...
+							}
+						}
+						else if(window.lastFromFrameAlert.match(/刷新失败/) != null) {
+							window.electiveWarning++;
+						}
+						else if(window.lastFromFrameAlert.match(/您需要5秒之后才可以刷新/) != null) {
+							window.electiveWarning++;
+						}
+						else if(window.lastFromFrameAlert.match(/选课人数没有变化/) != null) {
+							window.electiveSuccess++;
+						}
+
+						$("#electiveSuc").text(window.electiveSuccess)
+						$("#electiveWrn").text(window.electiveWarning)
+						$("#electiveRate").text(Math.round(window.electiveSuccess/(window.electiveSuccess+window.electiveWarning)*10000)/100)
+
+						$("#electiveXhr").html("<span class='text-success'>Refreshed #" + todo + "</span>");
+					}, toRefreshCounter * splitTime + Math.random() * 1000)
+					toRefreshCounter++;
+				}
+				catch(e) {
+
+				}
+			});
+		}
+	</script>
+</body>
+</html>
